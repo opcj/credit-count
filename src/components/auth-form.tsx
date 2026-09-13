@@ -3,12 +3,7 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Eye, EyeOff, ArrowRight } from "lucide-react";
 import { browserClient } from "@/lib/supabase/browser";
-import {
-  displayNameSchema,
-  emailSchema,
-  passwordSchema,
-  safeNext,
-} from "@/lib/domain";
+import { emailSchema, passwordSchema, safeNext } from "@/lib/domain";
 import { Button, Field, Notice } from "./ui";
 
 export function AuthForm({
@@ -16,7 +11,7 @@ export function AuthForm({
   next = "/dashboard",
   initialError = false,
 }: {
-  mode: "sign-in" | "sign-up" | "reset";
+  mode: "sign-in" | "reset";
   next?: string;
   initialError?: boolean;
 }) {
@@ -36,7 +31,6 @@ export function AuthForm({
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email") ?? "").trim();
     const password = String(form.get("password") ?? "");
-    const name = String(form.get("display_name") ?? "");
     if (mode !== "reset" && !emailSchema.safeParse(email).success) {
       setError("Enter a valid email address.");
       return;
@@ -45,36 +39,10 @@ export function AuthForm({
       setError("Use a password between 10 and 128 characters.");
       return;
     }
-    if (mode === "sign-up" && !displayNameSchema.safeParse(name).success) {
-      setError("Choose a display name between 1 and 50 characters.");
-      return;
-    }
     setBusy(true);
     try {
       const db = browserClient();
-      if (mode === "sign-up") {
-        const { data, error } = await db.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { display_name: name.trim() },
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
-        });
-        if (error) {
-          setError(
-            error.code === "over_email_send_rate_limit"
-              ? "Please wait a moment before requesting another email."
-              : "We couldn’t create that account. Check your details or try signing in.",
-          );
-          return;
-        }
-        if (data.session) window.location.replace("/dashboard");
-        else
-          setMessage(
-            "Check your email to confirm your account, then come back and start your journal.",
-          );
-      } else if (mode === "reset") {
+      if (mode === "reset") {
         const { error } = await db.auth.updateUser({ password });
         if (error) {
           setError(
@@ -135,16 +103,6 @@ export function AuthForm({
     <form className="stack-form auth-form" onSubmit={submit}>
       {error && <Notice>{error}</Notice>}
       {message && <Notice kind="success">{message}</Notice>}
-      {mode === "sign-up" && (
-        <Field
-          id="display-name"
-          name="display_name"
-          label="What should we call you?"
-          placeholder="Your display name"
-          autoComplete="nickname"
-          required
-        />
-      )}
       {mode !== "reset" && (
         <Field
           id="email"
@@ -186,11 +144,7 @@ export function AuthForm({
         </div>
       </div>
       <Button type="submit" busy={busy} className="auth-submit">
-        {mode === "sign-up"
-          ? "Start your collection"
-          : mode === "reset"
-            ? "Update password"
-            : "Welcome back"}
+        {mode === "reset" ? "Update password" : "Welcome back"}
         <ArrowRight size={17} aria-hidden="true" />
       </Button>
       {mode === "sign-in" && (
@@ -207,25 +161,11 @@ export function AuthForm({
           Forgot your password? Send a recovery link
         </button>
       )}
-      {mode === "sign-up" && (
-        <p className="auth-privacy">
-          Your ride history is always private. You decide if your name and
-          credit count join the leaderboard.
+      {mode === "reset" && (
+        <p className="auth-switch">
+          <Link href="/dashboard">Back to your journal</Link>
         </p>
       )}
-      <p className="auth-switch">
-        {mode === "sign-up" ? (
-          <>
-            Already collecting? <Link href="/sign-in">Sign in</Link>
-          </>
-        ) : mode === "sign-in" ? (
-          <>
-            New to the ride? <Link href="/sign-up">Create an account</Link>
-          </>
-        ) : (
-          <Link href="/dashboard">Back to your journal</Link>
-        )}
-      </p>
     </form>
   );
 }

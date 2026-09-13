@@ -2,13 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowLeft, Ticket, ShieldCheck, Globe2 } from "lucide-react";
 import { Brand, TrackArt } from "./brand";
-export function AuthLayout({
-  children,
-  signup = false,
-}: {
-  children: ReactNode;
-  signup?: boolean;
-}) {
+export function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <main className="auth-layout">
       <aside className="auth-story">
@@ -48,17 +42,9 @@ export function AuthLayout({
           Back to the community
         </Link>
         <div className="auth-panel-inner">
-          <p className="eyebrow">
-            {signup ? "ADMIT ONE THRILL SEEKER" : "YOUR RIDE PASS IS WAITING"}
-          </p>
-          <h2>
-            {signup ? "Let the adventure begin." : "Back for another ride?"}
-          </h2>
-          <p className="page-intro">
-            {signup
-              ? "A few details, and you’re on the track."
-              : "Sign in to pick up where you left off."}
-          </p>
+          <p className="eyebrow">YOUR RIDE PASS IS WAITING</p>
+          <h2>Back for another ride?</h2>
+          <p className="page-intro">Sign in to pick up where you left off.</p>
           {children}
         </div>
         <p className="auth-footer">Made for enthusiasts. Made for you.</p>

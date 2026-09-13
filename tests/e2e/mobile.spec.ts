@@ -7,6 +7,19 @@ test("T16/T28/T29: phone navigation, touch logging, reflow, and reduced motion",
   account,
 }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/leaderboard");
+  const signInLink = page
+    .getByRole("navigation", { name: "Public navigation" })
+    .getByRole("link", { name: "Sign in", exact: true });
+  await expect(signInLink).toBeVisible();
+  await expect(signInLink).toHaveClass(/button-primary/);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth + 1,
+    ),
+  ).toBeTruthy();
+  await signInLink.click();
+  await expect(page).toHaveURL(/\/sign-in$/);
   await signIn(page, account);
   await logRide(page);
   await expect(page.getByTestId("total-credits")).toHaveText("1");

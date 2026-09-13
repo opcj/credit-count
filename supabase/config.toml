@@ -36,10 +36,11 @@ enabled = true
 site_url = "http://127.0.0.1:3000"
 additional_redirect_urls = ["http://127.0.0.1:3000/auth/callback", "http://localhost:3000/auth/callback", "http://127.0.0.1:3001/auth/callback"]
 jwt_expiry = 3600
-enable_signup = true
+enable_signup = false
 minimum_password_length = 10
 
 [auth.email]
+# Keep the email/password provider enabled; the global signup setting blocks registration.
 enable_signup = true
 double_confirm_changes = true
 enable_confirmations = true

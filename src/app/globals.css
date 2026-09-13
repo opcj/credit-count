@@ -2123,9 +2123,6 @@ input[type="checkbox"] {
   textarea {
     font-size: 16px;
   }
-  .public-header .public-signup {
-    display: none;
-  }
   .public-header .brand-mark {
     width: 32px;
     height: 32px;

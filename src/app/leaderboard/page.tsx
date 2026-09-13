@@ -29,17 +29,12 @@ export default async function LeaderboardPage() {
               Your ride pass <ArrowRight size={16} />
             </Link>
           ) : (
-            <>
-              <Link className="text-link" href="/sign-in">
-                Sign in
-              </Link>
-              <Link
-                className="button button-primary public-signup"
-                href="/sign-up"
-              >
-                Start collecting <ArrowRight size={16} />
-              </Link>
-            </>
+            <Link
+              className="button button-primary public-login"
+              href="/sign-in"
+            >
+              Sign in <ArrowRight size={16} />
+            </Link>
           )}
         </nav>
       </header>
@@ -61,9 +56,9 @@ export default async function LeaderboardPage() {
             </p>
             <Link
               className="button button-primary hero-cta"
-              href={user ? "/dashboard" : "/sign-up"}
+              href={user ? "/dashboard" : "/sign-in"}
             >
-              {user ? "Open your ride pass" : "Get your ride pass"}
+              {user ? "Open your ride pass" : "Sign in to your ride pass"}
               <ArrowRight size={18} />
             </Link>
             <div className="hero-caption">
@@ -116,8 +111,8 @@ export default async function LeaderboardPage() {
       <footer className="public-footer">
         <Brand />
         <span>Made for the ride. And the people who love it.</span>
-        <Link href={user ? "/settings" : "/sign-up"}>
-          {user ? "Manage your privacy" : "Your collection starts here"}{" "}
+        <Link href={user ? "/settings" : "/sign-in"}>
+          {user ? "Manage your privacy" : "Sign in to your journal"}{" "}
           <ArrowRight size={14} />
         </Link>
       </footer>

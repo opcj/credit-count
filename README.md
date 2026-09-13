@@ -8,13 +8,13 @@ Log a coaster, date and optional memory; the dashboard updates your credits, tot
 
 Your journal is private. You can choose to publish only your display name and credit count on the community leaderboard. Catalogue administrators maintain the shared coaster list and correct duplicates without access to other people's journals.
 
-The hosted app supports sign-in with prepared review accounts. Production email delivery is pending, so use those accounts for the live review; signup confirmation and password recovery require SMTP configuration before general registration. Local email flows work through Mailpit as described below.
+The app uses prepared accounts, with public registration disabled in both the interface and Supabase Auth. Use the supplied enthusiast and administrator credentials for the live review. Production email delivery remains unconfigured; local password recovery works through Mailpit as described below.
 
 The live leaderboard includes five synthetic demo riders with distinct credit totals and repeat rides. Their journals follow the same ownership rules as every account; the public ranking exposes only their display names and credit counts.
 
 ## Features
 
-- Email/password accounts, email confirmation, password recovery and session renewal.
+- Provisioned email/password accounts, password recovery and session renewal.
 - Searchable catalogue of 40 real coasters, with country, manufacturer and type filters.
 - Ride creation, editing, deletion and paginated history with revision conflict handling.
 - Derived statistics, plus safe retry after a lost save response.
@@ -49,6 +49,7 @@ npm run db:start
 npm run setup:local
 npx supabase migration up --local
 npm run db:seed
+npm run demo:seed
 npm run dev
 ```
 
@@ -64,11 +65,11 @@ Open **http://127.0.0.1:3000**. The first database start downloads Docker images
 | `127.0.0.1:55322`, database `postgres` | PostgreSQL                               |
 | `http://127.0.0.1:55324`               | Mailpit confirmation and recovery emails |
 
-Keep ports 3000/3001 and 55320–55324 available. Use `127.0.0.1` consistently: `localhost` has a separate cookie namespace. Sign up in the app, open Mailpit, then open the confirmation link in the same browser context used to sign up. Password recovery uses the same local email capture.
+Keep ports 3000/3001 and 55320–55324 available. Use `127.0.0.1` consistently: `localhost` has a separate cookie namespace. Sign in with the generated demo credentials. To test password recovery, request a link from the sign-in page, open Mailpit and follow that link in the same browser context that requested it. `/sign-up` redirects to sign-in, and direct Auth signup requests are rejected.
 
 ### Demo accounts
 
-To explore populated journals and the admin interface:
+The setup above prepares populated journals and the admin interface. On an existing local installation, prepare these accounts with:
 
 ```powershell
 npm run demo:seed
@@ -109,7 +110,7 @@ npx playwright install chromium
 npm run verify
 ```
 
-The gate runs lint, TypeScript, unit tests, generated database-type comparison, real API/database integration tests, an optimized build, browser scenarios and a source/browser-bundle secret scan. Playwright starts and stops its own production server. The current suite includes **7 unit tests, 18 integration tests including the parent suite, and 19 browser scenarios**, with desktop/mobile accessibility checks.
+The gate runs lint, TypeScript, unit tests, generated database-type comparison, real API/database integration tests, an optimized build, browser scenarios and a source/browser-bundle secret scan. Playwright starts and stops its own production server. The current suite includes **7 unit tests, 18 integration tests including the parent suite, and 20 browser scenarios**, with desktop/mobile accessibility checks and direct verification that registration is disabled.
 
 | Command                              | Use                                                                                   |
 | ------------------------------------ | ------------------------------------------------------------------------------------- |
@@ -141,7 +142,7 @@ Archive preserves existing rides and credits while preventing new selection. Del
 
 ### Grant catalogue administration
 
-Create and confirm a normal account, find its UUID in Supabase Auth, then run the following in an operator SQL session, replacing the placeholder with that exact UUID:
+Create a confirmed account through the Supabase Auth dashboard or its administrative API, find its UUID, then run the following in an operator SQL session, replacing the placeholder with that exact UUID:
 
 ```sql
 insert into public.admin_users (user_id)
@@ -169,8 +170,8 @@ Revoke access with `delete from public.admin_users where user_id = 'REPLACE_WITH
    Check the linked project before applying changes. The hosted database password/access token belongs in operator tooling. Local demo and test scripts deliberately refuse hosted targets.
 
 3. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `NEXT_PUBLIC_SITE_URL` in Vercel. Use the project's public key and the canonical HTTPS application origin. Build after setting them: public environment values are embedded in browser assets. Vercel needs no service-role key or database password.
-4. In Supabase Auth, set the same HTTPS Site URL and allow the exact `https://YOUR_DOMAIN/auth/callback` redirect. Enable email/password signup and email confirmation, configure production SMTP, and test confirmation and password recovery using real deliverable addresses. The permissive local mail limits in `supabase/config.toml` are for local development.
-5. Deploy the configured build with `npx vercel deploy --prod` from a clean release checkout, or through the connected Git repository. Provision any administrator membership through SQL, and verify login/logout, email flows, journal ownership, catalogue roles, opt-in/out and mobile navigation against the hosted environment. Check cache/security headers, provider quotas, backup retention and a restore procedure before accepting production traffic.
+4. In Supabase Auth, set the same HTTPS Site URL and allow the exact `https://YOUR_DOMAIN/auth/callback` redirect. Keep the email/password provider enabled, disable new user signup globally, and provision confirmed reviewer accounts through the Auth dashboard or administrative API. In CLI configuration, use `[auth].enable_signup = false` and retain `[auth.email].enable_signup = true`: the email setting also controls existing-account sign-in, while the global setting rejects registration. The permissive local mail limits in `supabase/config.toml` are for development; configure production SMTP and verify password-recovery delivery if that feature is required.
+5. Deploy the same committed source that was pushed to GitHub with `npx vercel deploy --prod` from a clean release checkout, or through a connected Git repository. Record the commit SHA and deployment ID together. Provision any administrator membership through SQL, and verify login/logout, registration rejection, journal ownership, catalogue roles, opt-in/out and mobile navigation against the hosted environment. Check cache/security headers, provider quotas, backup retention and a restore procedure before accepting production traffic.
 
 The current site was deployed directly with the CLI; automatic Git deployments are not connected. `.vercelignore` excludes local credentials, internal documents, tests and database/operator tooling from application uploads. Migrations and seeds are applied separately through the Supabase CLI. Keep an existing local `.env.local` intact when linking projects: run `vercel link` in a clean checkout and provide production configuration through Vercel's environment settings.
 

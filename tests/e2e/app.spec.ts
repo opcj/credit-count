@@ -378,97 +378,92 @@ test("T19/T25: stale edits show a conflict, and logout removes protected access"
   await expect(page).toHaveURL(/\/sign-in/);
 });
 
-test("T02/T27: signup confirmation uses real local email and unsafe callbacks are rejected", async ({
+test("Registration is closed in navigation, its old route, and the Auth API", async ({
   page,
 }) => {
-  const suffix = randomUUID().slice(0, 8);
-  const email = `signup-${suffix}@credit-count.test`;
+  await page.goto("/leaderboard");
+  const navigation = page.getByRole("navigation", {
+    name: "Public navigation",
+  });
+  const signInLink = navigation.getByRole("link", {
+    name: "Sign in",
+    exact: true,
+  });
+  await expect(navigation.getByRole("link")).toHaveCount(1);
+  await expect(signInLink).toHaveClass(/button-primary/);
+  await expect(page.locator('a[href="/sign-up"]')).toHaveCount(0);
+  await signInLink.click();
+  await expect(page).toHaveURL(/\/sign-in$/);
+  await expect(
+    page.getByRole("link", { name: "Create an account" }),
+  ).toHaveCount(0);
+  await page.goto("/sign-up?next=https://attacker.test");
+  await expect(page).toHaveURL(/\/sign-in$/);
+
+  const email = `closed-signup-${randomUUID()}@credit-count.test`;
+  const rejected = await localClient().auth.signUp({
+    email,
+    password: `ClosedSignup-${randomUUID()}`,
+  });
+  const db = await localDatabase();
   let createdId: string | undefined;
   try {
-    await page.goto("/sign-up");
-    await page
-      .getByLabel("What should we call you?")
-      .fill(`New Rider ${suffix}`);
-    await page.getByLabel("Email address").fill(email);
-    await page
-      .getByLabel("Password", { exact: true })
-      .fill(`LongLocalPassword-${suffix}`);
-    await page.getByRole("button", { name: "Start your collection" }).click();
-    await expect(page.getByRole("status")).toContainText("Check your email");
-    const db = await localDatabase();
-    try {
-      createdId = (
-        await db.query("select id from auth.users where email=$1", [email])
-      ).rows[0]?.id;
-    } finally {
-      await db.end();
-    }
-    expect(createdId).toBeTruthy();
-    let messageId = "";
-    await expect(async () => {
-      const inbox = await (
-        await fetch("http://127.0.0.1:55324/api/v1/messages")
-      ).json();
-      const item = inbox.messages.find((m: { To: { Address: string }[] }) =>
-        m.To?.some((to) => to.Address === email),
-      );
-      expect(item).toBeTruthy();
-      messageId = item.ID;
-    }).toPass({ timeout: 10_000 });
-    const message = await (
-      await fetch(`http://127.0.0.1:55324/api/v1/message/${messageId}`)
-    ).json();
-    const link = String(message.HTML || message.Text).match(
-      /https?:\/\/[^\s"<>]+\/auth\/v1\/verify[^\s"<>]+/,
-    );
-    expect(link).toBeTruthy();
-    await page.goto(link![0].replaceAll("&amp;", "&"));
-    await page.waitForURL("**/dashboard");
-    await expect(page.getByTestId("total-credits")).toHaveText("0");
-    await page.getByRole("button", { name: "Sign out", exact: true }).click();
-    await page.waitForURL("**/sign-in");
-    await page.getByLabel("Email address").fill(email);
-    await page
-      .getByRole("button", {
-        name: "Forgot your password? Send a recovery link",
-      })
-      .click();
-    await expect(page.getByRole("status")).toContainText("recovery link");
-    let recoveryId = "";
-    await expect(async () => {
-      const inbox = await (
-        await fetch("http://127.0.0.1:55324/api/v1/messages")
-      ).json();
-      const item = inbox.messages.find(
-        (m: { ID: string; To: { Address: string }[] }) =>
-          m.ID !== messageId && m.To?.some((to) => to.Address === email),
-      );
-      expect(item).toBeTruthy();
-      recoveryId = item.ID;
-    }).toPass({ timeout: 10_000 });
-    const recovery = await (
-      await fetch(`http://127.0.0.1:55324/api/v1/message/${recoveryId}`)
-    ).json();
-    const recoveryLink = String(recovery.HTML || recovery.Text).match(
-      /https?:\/\/[^\s"<>]+\/auth\/v1\/verify[^\s"<>]+/,
-    );
-    expect(recoveryLink).toBeTruthy();
-    await page.goto(recoveryLink![0].replaceAll("&amp;", "&"));
-    await page.waitForURL("**/reset-password");
-    const changedPassword = `ChangedLocalPassword-${suffix}`;
-    await page.getByLabel("New password").fill(changedPassword);
-    await page
-      .getByRole("button", { name: "Update password", exact: true })
-      .click();
-    await expect(page.getByRole("status")).toContainText("Password updated");
-    await page.getByRole("button", { name: "Sign out", exact: true }).click();
-    await page.waitForURL("**/sign-in");
-    await signIn(page, { email, password: changedPassword });
-    await page.goto("/auth/callback?code=invalid&next=https://attacker.test");
-    await expect(page).toHaveURL(/\/sign-in\?error=confirmation/);
+    createdId = (
+      await db.query("select id from auth.users where email=$1", [email])
+    ).rows[0]?.id;
+    expect(rejected.error?.code).toBe("signup_disabled");
+    expect(rejected.data.session).toBeNull();
+    expect(createdId).toBeUndefined();
   } finally {
+    await db.end();
     if (createdId) await localAdmin().auth.admin.deleteUser(createdId);
   }
+});
+
+test("T02/T27: provisioned accounts recover through real local email and reject unsafe callbacks", async ({
+  page,
+  account,
+}) => {
+  await page.goto("/sign-in");
+  await page.getByLabel("Email address").fill(account.email);
+  await page
+    .getByRole("button", {
+      name: "Forgot your password? Send a recovery link",
+    })
+    .click();
+  await expect(page.getByRole("status")).toContainText("recovery link");
+  let recoveryId = "";
+  await expect(async () => {
+    const inbox = await (
+      await fetch("http://127.0.0.1:55324/api/v1/messages")
+    ).json();
+    const item = inbox.messages.find(
+      (m: { ID: string; To: { Address: string }[] }) =>
+        m.To?.some((to) => to.Address === account.email),
+    );
+    expect(item).toBeTruthy();
+    recoveryId = item.ID;
+  }).toPass({ timeout: 10_000 });
+  const recovery = await (
+    await fetch(`http://127.0.0.1:55324/api/v1/message/${recoveryId}`)
+  ).json();
+  const recoveryLink = String(recovery.HTML || recovery.Text).match(
+    /https?:\/\/[^\s"<>]+\/auth\/v1\/verify[^\s"<>]+/,
+  );
+  expect(recoveryLink).toBeTruthy();
+  await page.goto(recoveryLink![0].replaceAll("&amp;", "&"));
+  await page.waitForURL("**/reset-password");
+  const changedPassword = `ChangedLocalPassword-${randomUUID()}`;
+  await page.getByLabel("New password").fill(changedPassword);
+  await page
+    .getByRole("button", { name: "Update password", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText("Password updated");
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await page.waitForURL("**/sign-in");
+  await signIn(page, { email: account.email, password: changedPassword });
+  await page.goto("/auth/callback?code=invalid&next=https://attacker.test");
+  await expect(page).toHaveURL(/\/sign-in\?error=confirmation/);
 });
 
 test("T28/T29: desktop screen states have no automated accessibility violations", async ({
@@ -488,7 +483,6 @@ test("T28/T29: desktop screen states have no automated accessibility violations"
     "/admin/coasters",
     "/leaderboard",
     "/sign-in",
-    "/sign-up",
   ]) {
     await page.goto(route);
     if (route === "/leaderboard")
