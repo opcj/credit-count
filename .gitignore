@@ -1,0 +1,25 @@
+# Local tools and generated agent instructions.
+.tools/
+AGENTS.md
+CLAUDE.md
+docs/
+
+# Local credentials and environment configuration.
+.env
+.env.*
+!.env.example
+credentials.local.*
+
+# Generated application files.
+node_modules/
+.next/
+out/
+coverage/
+playwright-report/
+test-results/
+.vercel/
+*.tsbuildinfo
+supabase/.temp/
+supabase/.branches/
+artifacts/
+*.log

@@ -1,0 +1,63 @@
+{
+  "name": "credit-count",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/unit/*.test.ts",
+    "test:integration": "tsx --env-file=.env.local --test --test-concurrency=1 tests/integration/*.test.ts",
+    "test:e2e": "playwright test",
+    "db:start": "supabase start --exclude studio,postgres-meta,storage-api,imgproxy,logflare,vector,edge-runtime",
+    "db:stop": "supabase stop",
+    "db:reset": "node scripts/reset-local.mjs",
+    "db:types": "node scripts/generate-types.mjs",
+    "db:seed:build": "tsx scripts/build-seed.ts",
+    "db:seed": "tsx --env-file=.env.local scripts/seed-catalogue.ts",
+    "setup:local": "node scripts/local-env.mjs",
+    "demo:seed": "tsx --env-file=.env.local scripts/seed-demo.ts",
+    "test:performance": "tsx --env-file=.env.local scripts/measure-database.ts",
+    "format": "prettier --write src tests scripts README.md *.json *.mjs",
+    "db:types:check": "node scripts/generate-types.mjs --check",
+    "test:recovery": "tsx --env-file=.env.local scripts/recovery-rehearsal.ts",
+    "test:browser-performance": "tsx scripts/measure-browser.ts",
+    "test:secrets": "tsx --env-file=.env.local scripts/scan-secrets.ts",
+    "verify": "tsx --env-file=.env.local scripts/verify.ts",
+    "verify:full": "tsx --env-file=.env.local scripts/verify.ts --full"
+  },
+  "dependencies": {
+    "@radix-ui/react-dialog": "1.1.23",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.116.0",
+    "clsx": "2.1.1",
+    "lucide-react": "1.43.0",
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "26.5.0",
+    "@types/pg": "8.23.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.4",
+    "pg": "8.23.0",
+    "prettier": "3.9.6",
+    "supabase": "2.117.0",
+    "tailwindcss": "4.3.3",
+    "tsx": "4.23.13",
+    "typescript": "6.0.3"
+  }
+}

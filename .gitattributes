@@ -1,0 +1,6 @@
+* text=auto eol=lf
+*.pdf binary
+*.png binary
+*.jpg binary
+# Preserve the bundled upstream license text verbatim.
+src/app/fonts/*-OFL.txt -whitespace
