@@ -1,0 +1,22 @@
+# Application deployment inputs only. Local/operator material stays on this machine.
+.git
+node_modules
+.next
+.vercel
+.env
+.env.*
+credentials.local.*
+artifacts
+playwright-report
+test-results
+.tools
+docs
+sources
+technical-design.*
+AGENTS.md
+CLAUDE.md
+/scripts/
+/tests/
+/supabase/
+*.tsbuildinfo
+*.log
