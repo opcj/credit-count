@@ -1687,6 +1687,16 @@ input[type="checkbox"] {
   .public-header .brand {
     font-size: 22px;
   }
+  .public-header {
+    height: auto;
+    min-height: 82px;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-block: 16px;
+  }
+  .public-header nav {
+    margin-left: auto;
+  }
   .hero-copy h1 {
     font-size: clamp(39px, 10.7vw, 62px);
   }

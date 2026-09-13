@@ -29,12 +29,17 @@ export default async function LeaderboardPage() {
               Your ride pass <ArrowRight size={16} />
             </Link>
           ) : (
-            <Link
-              className="button button-primary public-login"
-              href="/sign-in"
-            >
-              Sign in <ArrowRight size={16} />
-            </Link>
+            <>
+              <Link className="text-link" href="/sign-up">
+                Create an account
+              </Link>
+              <Link
+                className="button button-primary public-login"
+                href="/sign-in"
+              >
+                Sign in <ArrowRight size={16} />
+              </Link>
+            </>
           )}
         </nav>
       </header>

@@ -3,7 +3,12 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Eye, EyeOff, ArrowRight } from "lucide-react";
 import { browserClient } from "@/lib/supabase/browser";
-import { emailSchema, passwordSchema, safeNext } from "@/lib/domain";
+import {
+  displayNameSchema,
+  emailSchema,
+  passwordSchema,
+  safeNext,
+} from "@/lib/domain";
 import { Button, Field, Notice } from "./ui";
 
 export function AuthForm({
@@ -11,7 +16,7 @@ export function AuthForm({
   next = "/dashboard",
   initialError = false,
 }: {
-  mode: "sign-in" | "reset";
+  mode: "sign-in" | "sign-up" | "reset";
   next?: string;
   initialError?: boolean;
 }) {
@@ -31,6 +36,13 @@ export function AuthForm({
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email") ?? "").trim();
     const password = String(form.get("password") ?? "");
+    const displayName = displayNameSchema.safeParse(
+      String(form.get("display_name") ?? ""),
+    );
+    if (mode === "sign-up" && !displayName.success) {
+      setError(displayName.error.issues[0].message);
+      return;
+    }
     if (mode !== "reset" && !emailSchema.safeParse(email).success) {
       setError("Enter a valid email address.");
       return;
@@ -51,6 +63,23 @@ export function AuthForm({
           return;
         }
         setMessage("Password updated. You can return to your journal.");
+      } else if (mode === "sign-up" && displayName.success) {
+        const { data, error } = await db.auth.signUp({
+          email,
+          password,
+          options: { data: { display_name: displayName.data } },
+        });
+        if (error) {
+          setError(
+            "We couldn’t create your account. Try signing in or use a different email address.",
+          );
+          return;
+        }
+        if (!data.session) {
+          setError("We couldn’t start your session. Please try signing in.");
+          return;
+        }
+        window.location.replace(safeNext(next));
       } else {
         const { error } = await db.auth.signInWithPassword({ email, password });
         if (error) {
@@ -103,6 +132,18 @@ export function AuthForm({
     <form className="stack-form auth-form" onSubmit={submit}>
       {error && <Notice>{error}</Notice>}
       {message && <Notice kind="success">{message}</Notice>}
+      {mode === "sign-up" && (
+        <Field
+          id="display-name"
+          name="display_name"
+          label="Display name"
+          autoComplete="nickname"
+          placeholder="Your coaster-loving alter ego"
+          required
+          disabled={busy}
+          hint="Your journal starts private. You choose whether to share your name and credit count."
+        />
+      )}
       {mode !== "reset" && (
         <Field
           id="email"
@@ -112,6 +153,7 @@ export function AuthForm({
           autoComplete="email"
           placeholder="you@example.com"
           required
+          disabled={busy}
         />
       )}
       <div className="field">
@@ -128,6 +170,7 @@ export function AuthForm({
             }
             required
             minLength={mode === "sign-in" ? 1 : 10}
+            disabled={busy}
             maxLength={128}
             placeholder={
               mode === "sign-in" ? "Your password" : "At least 10 characters"
@@ -144,7 +187,11 @@ export function AuthForm({
         </div>
       </div>
       <Button type="submit" busy={busy} className="auth-submit">
-        {mode === "reset" ? "Update password" : "Welcome back"}
+        {mode === "reset"
+          ? "Update password"
+          : mode === "sign-up"
+            ? "Create account"
+            : "Welcome back"}
         <ArrowRight size={17} aria-hidden="true" />
       </Button>
       {mode === "sign-in" && (
@@ -164,6 +211,16 @@ export function AuthForm({
       {mode === "reset" && (
         <p className="auth-switch">
           <Link href="/dashboard">Back to your journal</Link>
+        </p>
+      )}
+      {mode === "sign-in" && (
+        <p className="auth-switch">
+          New to the queue? <Link href="/sign-up">Create an account</Link>
+        </p>
+      )}
+      {mode === "sign-up" && (
+        <p className="auth-switch">
+          Already have a ride pass? <Link href="/sign-in">Sign in</Link>
         </p>
       )}
     </form>

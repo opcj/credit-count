@@ -15,6 +15,23 @@ import {
   localDatabase,
 } from "../../scripts/local-context";
 
+async function deleteLocalUsersByEmail(...emails: string[]) {
+  const db = await localDatabase();
+  try {
+    const users = await db.query<{ id: string }>(
+      "select id from auth.users where email=any($1::text[])",
+      [emails],
+    );
+    const admin = localAdmin();
+    for (const user of users.rows) {
+      const removed = await admin.auth.admin.deleteUser(user.id);
+      expect(removed.error).toBeNull();
+    }
+  } finally {
+    await db.end();
+  }
+}
+
 test("T03/T04/T16: three-action logging, correct re-rides, editable notes, and deletion", async ({
   page,
   account,
@@ -378,45 +395,171 @@ test("T19/T25: stale edits show a conflict, and logout removes protected access"
   await expect(page).toHaveURL(/\/sign-in/);
 });
 
-test("Registration is closed in navigation, its old route, and the Auth API", async ({
+test("T02/T03: public signup starts a private journal without email confirmation", async ({
   page,
 }) => {
-  await page.goto("/leaderboard");
-  const navigation = page.getByRole("navigation", {
-    name: "Public navigation",
-  });
-  const signInLink = navigation.getByRole("link", {
-    name: "Sign in",
-    exact: true,
-  });
-  await expect(navigation.getByRole("link")).toHaveCount(1);
-  await expect(signInLink).toHaveClass(/button-primary/);
-  await expect(page.locator('a[href="/sign-up"]')).toHaveCount(0);
-  await signInLink.click();
-  await expect(page).toHaveURL(/\/sign-in$/);
-  await expect(
-    page.getByRole("link", { name: "Create an account" }),
-  ).toHaveCount(0);
-  await page.goto("/sign-up?next=https://attacker.test");
-  await expect(page).toHaveURL(/\/sign-in$/);
-
-  const email = `closed-signup-${randomUUID()}@credit-count.test`;
-  const rejected = await localClient().auth.signUp({
-    email,
-    password: `ClosedSignup-${randomUUID()}`,
-  });
-  const db = await localDatabase();
-  let createdId: string | undefined;
+  const suffix = randomUUID();
+  const email = `signup-${suffix}@credit-count.test`;
+  const password = `Signup-${randomUUID()}`;
+  const displayName = `New Rider ${suffix.slice(0, 8)}`;
   try {
-    createdId = (
-      await db.query("select id from auth.users where email=$1", [email])
-    ).rows[0]?.id;
-    expect(rejected.error?.code).toBe("signup_disabled");
-    expect(rejected.data.session).toBeNull();
-    expect(createdId).toBeUndefined();
+    await page.goto("/leaderboard");
+    const navigation = page.getByRole("navigation", {
+      name: "Public navigation",
+    });
+    const signInLink = navigation.getByRole("link", {
+      name: "Sign in",
+      exact: true,
+    });
+    const createAccountLink = navigation.getByRole("link", {
+      name: "Create an account",
+      exact: true,
+    });
+    await expect(signInLink).toHaveClass(/button-primary/);
+    await expect(createAccountLink).toBeVisible();
+    await expect(createAccountLink).not.toHaveClass(/button-primary/);
+
+    await signInLink.click();
+    await expect(page).toHaveURL(/\/sign-in$/);
+    await page
+      .getByRole("link", { name: "Create an account", exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/sign-up$/);
+    await page.getByLabel("Display name").fill(displayName);
+    await page.getByLabel("Email address").fill(email);
+    await page.getByLabel("Password", { exact: true }).fill(password);
+    await page
+      .getByRole("button", { name: "Create account", exact: true })
+      .click();
+
+    // Confirmation is disabled, so registration immediately establishes a session.
+    await page.waitForURL("**/dashboard");
+    await expect(page.getByTestId("total-credits")).toHaveText("0");
+    await expect(page.getByTestId("total-rides")).toHaveText("0");
+
+    const db = await localDatabase();
+    try {
+      const identity = await db.query<{
+        display_name: string;
+        leaderboard_opt_in: boolean;
+        is_admin: boolean;
+      }>(
+        `select p.display_name, p.leaderboard_opt_in,
+          exists(select 1 from public.admin_users a where a.user_id=u.id) as is_admin
+         from auth.users u join public.profiles p on p.user_id=u.id
+         where u.email=$1`,
+        [email],
+      );
+      expect(identity.rows).toEqual([
+        {
+          display_name: displayName,
+          leaderboard_opt_in: false,
+          is_admin: false,
+        },
+      ]);
+    } finally {
+      await db.end();
+    }
+
+    for (const coaster of [
+      "Stealth",
+      "Stealth",
+      "Nemesis Reborn",
+      "Steel Vengeance",
+    ])
+      await logRide(page, coaster);
+    await expect(page.getByTestId("total-credits")).toHaveText("3");
+    await expect(page.getByTestId("total-rides")).toHaveText("4");
+
+    await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    await page.waitForURL("**/sign-in");
+    await signIn(page, { email, password });
+    await expect(page.getByTestId("total-credits")).toHaveText("3");
+    await expect(page.getByTestId("total-rides")).toHaveText("4");
+
+    const inbox = (await (
+      await fetch("http://127.0.0.1:55324/api/v1/messages")
+    ).json()) as { messages: { To?: { Address: string }[] }[] };
+    expect(
+      inbox.messages.some((message) =>
+        message.To?.some((recipient) => recipient.Address === email),
+      ),
+    ).toBe(false);
   } finally {
-    await db.end();
-    if (createdId) await localAdmin().auth.admin.deleteUser(createdId);
+    await deleteLocalUsersByEmail(email);
+  }
+});
+
+test("T02: duplicate signup keeps the existing account intact", async ({
+  page,
+  account,
+}) => {
+  await page.goto("/sign-up");
+  await page.getByLabel("Display name").fill("Replacement Rider");
+  await page.getByLabel("Email address").fill(account.email);
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill(`Replacement-${randomUUID()}`);
+  await page
+    .getByRole("button", { name: "Create account", exact: true })
+    .click();
+  await expect(page.locator("form").getByRole("alert")).toContainText(
+    "We couldn’t create your account. Try signing in or use a different email address.",
+  );
+  await expect(page).toHaveURL(/\/sign-up$/);
+
+  await page.getByRole("link", { name: "Sign in", exact: true }).click();
+  await signIn(page, account);
+  await expect(page.getByTestId("total-credits")).toHaveText("0");
+  const profile = await account.client
+    .from("profiles")
+    .select("display_name, leaderboard_opt_in")
+    .single();
+  expect(profile.error).toBeNull();
+  expect(profile.data).toEqual({
+    display_name: account.name,
+    leaderboard_opt_in: false,
+  });
+});
+
+test("T02/T07: signup metadata cannot grant catalogue privileges or public sharing", async () => {
+  const suffix = randomUUID();
+  const email = `metadata-signup-${suffix}@credit-count.test`;
+  try {
+    const signed = await localClient().auth.signUp({
+      email,
+      password: `Metadata-${randomUUID()}`,
+      options: {
+        data: {
+          display_name: `Metadata Rider ${suffix.slice(0, 8)}`,
+          role: "admin",
+          leaderboard_opt_in: true,
+        },
+      },
+    });
+    expect(signed.error).toBeNull();
+    expect(signed.data.session).not.toBeNull();
+
+    const db = await localDatabase();
+    try {
+      const authorization = await db.query<{
+        leaderboard_opt_in: boolean;
+        is_admin: boolean;
+      }>(
+        `select p.leaderboard_opt_in,
+          exists(select 1 from public.admin_users a where a.user_id=u.id) as is_admin
+         from auth.users u join public.profiles p on p.user_id=u.id
+         where u.email=$1`,
+        [email],
+      );
+      expect(authorization.rows).toEqual([
+        { leaderboard_opt_in: false, is_admin: false },
+      ]);
+    } finally {
+      await db.end();
+    }
+  } finally {
+    await deleteLocalUsersByEmail(email);
   }
 });
 

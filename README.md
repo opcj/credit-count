@@ -8,13 +8,13 @@ Log a coaster, date and optional memory; the dashboard updates your credits, tot
 
 Your journal is private. You can choose to publish only your display name and credit count on the community leaderboard. Catalogue administrators maintain the shared coaster list and correct duplicates without access to other people's journals.
 
-The app uses prepared accounts, with public registration disabled in both the interface and Supabase Auth. Use the supplied enthusiast and administrator credentials for the live review. Production email delivery remains unconfigured; local password recovery works through Mailpit as described below.
+Create an account with a display name, email and password to start logging immediately. Email confirmation is disabled, so signup does not depend on email delivery and does not verify ownership of the address. New journals are private and new accounts have no administrator access. The supplied enthusiast and administrator accounts remain available for the live review. Production email delivery remains unconfigured; password recovery requires SMTP, while local recovery works through Mailpit as described below.
 
 The live leaderboard includes five synthetic demo riders with distinct credit totals and repeat rides. Their journals follow the same ownership rules as every account; the public ranking exposes only their display names and credit counts.
 
 ## Features
 
-- Provisioned email/password accounts, password recovery and session renewal.
+- Email/password signup with immediate sign-in, session renewal and a standard recovery flow when email delivery is configured.
 - Searchable catalogue of 40 real coasters, with country, manufacturer and type filters.
 - Ride creation, editing, deletion and paginated history with revision conflict handling.
 - Derived statistics, plus safe retry after a lost save response.
@@ -57,15 +57,15 @@ Open **http://127.0.0.1:3000**. The first database start downloads Docker images
 
 `setup:local` reads this stack's configuration and writes an ignored `.env.local` without printing credentials. If that file already exists, skip the command. To deliberately regenerate it for the current local stack, use `node scripts/local-env.mjs --replace`.
 
-| Address                                | Service                                  |
-| -------------------------------------- | ---------------------------------------- |
-| `http://127.0.0.1:3000`                | Development app                          |
-| `http://127.0.0.1:3001`                | Optimized preview and browser tests      |
-| `http://127.0.0.1:55321`               | Supabase API/Auth/Realtime               |
-| `127.0.0.1:55322`, database `postgres` | PostgreSQL                               |
-| `http://127.0.0.1:55324`               | Mailpit confirmation and recovery emails |
+| Address                                | Service                             |
+| -------------------------------------- | ----------------------------------- |
+| `http://127.0.0.1:3000`                | Development app                     |
+| `http://127.0.0.1:3001`                | Optimized preview and browser tests |
+| `http://127.0.0.1:55321`               | Supabase API/Auth/Realtime          |
+| `127.0.0.1:55322`, database `postgres` | PostgreSQL                          |
+| `http://127.0.0.1:55324`               | Mailpit password-recovery emails    |
 
-Keep ports 3000/3001 and 55320–55324 available. Use `127.0.0.1` consistently: `localhost` has a separate cookie namespace. Sign in with the generated demo credentials. To test password recovery, request a link from the sign-in page, open Mailpit and follow that link in the same browser context that requested it. `/sign-up` redirects to sign-in, and direct Auth signup requests are rejected.
+Keep ports 3000/3001 and 55320–55324 available. Use `127.0.0.1` consistently: `localhost` has a separate cookie namespace. Sign in with the generated demo credentials or create an account at `/sign-up`; registration starts a session without sending confirmation email. To test password recovery, request a link from the sign-in page, open Mailpit and follow that link in the same browser context that requested it.
 
 ### Demo accounts
 
@@ -110,7 +110,7 @@ npx playwright install chromium
 npm run verify
 ```
 
-The gate runs lint, TypeScript, unit tests, generated database-type comparison, real API/database integration tests, an optimized build, browser scenarios and a source/browser-bundle secret scan. Playwright starts and stops its own production server. The current suite includes **7 unit tests, 18 integration tests including the parent suite, and 20 browser scenarios**, with desktop/mobile accessibility checks and direct verification that registration is disabled.
+The gate runs lint, TypeScript, unit tests, generated database-type comparison, real API/database integration tests, an optimized build, browser scenarios and a source/browser-bundle secret scan. Playwright starts and stops its own production server. The current suite includes **7 unit tests, 18 integration tests including the parent suite, and 22 browser scenarios**, with desktop/mobile accessibility checks, immediate-session signup, duplicate-account protection and private/non-admin defaults.
 
 | Command                              | Use                                                                                   |
 | ------------------------------------ | ------------------------------------------------------------------------------------- |
@@ -170,8 +170,8 @@ Revoke access with `delete from public.admin_users where user_id = 'REPLACE_WITH
    Check the linked project before applying changes. The hosted database password/access token belongs in operator tooling. Local demo and test scripts deliberately refuse hosted targets.
 
 3. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `NEXT_PUBLIC_SITE_URL` in Vercel. Use the project's public key and the canonical HTTPS application origin. Build after setting them: public environment values are embedded in browser assets. Vercel needs no service-role key or database password.
-4. In Supabase Auth, set the same HTTPS Site URL and allow the exact `https://YOUR_DOMAIN/auth/callback` redirect. Keep the email/password provider enabled, disable new user signup globally, and provision confirmed reviewer accounts through the Auth dashboard or administrative API. In CLI configuration, use `[auth].enable_signup = false` and retain `[auth.email].enable_signup = true`: the email setting also controls existing-account sign-in, while the global setting rejects registration. The permissive local mail limits in `supabase/config.toml` are for development; configure production SMTP and verify password-recovery delivery if that feature is required.
-5. Deploy the same committed source that was pushed to GitHub with `npx vercel deploy --prod` from a clean release checkout, or through a connected Git repository. Record the commit SHA and deployment ID together. Provision any administrator membership through SQL, and verify login/logout, registration rejection, journal ownership, catalogue roles, opt-in/out and mobile navigation against the hosted environment. Check cache/security headers, provider quotas, backup retention and a restore procedure before accepting production traffic.
+4. In Supabase Auth, set the same HTTPS Site URL and allow the exact `https://YOUR_DOMAIN/auth/callback` redirect. Enable new user signup and the email/password provider, and turn **Confirm email** off. In CLI configuration, use `[auth].enable_signup = true`, `[auth.email].enable_signup = true` and `[auth.email].enable_confirmations = false`. This release expects signup to return an immediate session. The database creates a private profile and grants no admin role. The permissive local mail limits in `supabase/config.toml` are for development; preserve the hosted project's production rate limits rather than pushing the entire local config. Configure production SMTP and verify password-recovery delivery separately. Before requiring verified addresses, update the signup flow to handle confirmation, configure email delivery and test the complete journey.
+5. Deploy the same committed source that was pushed to GitHub with `npx vercel deploy --prod` from a clean release checkout, or through a connected Git repository. Record the commit SHA and deployment ID together. Provision any administrator membership through SQL, and verify signup with an immediate session and private/non-admin defaults, existing-account login/logout, journal ownership, catalogue roles, opt-in/out and mobile navigation against the hosted environment. Check cache/security headers, provider quotas, backup retention and a restore procedure before accepting production traffic.
 
 The current site was deployed directly with the CLI; automatic Git deployments are not connected. `.vercelignore` excludes local credentials, internal documents, tests and database/operator tooling from application uploads. Migrations and seeds are applied separately through the Supabase CLI. Keep an existing local `.env.local` intact when linking projects: run `vercel link` in a clean checkout and provide production configuration through Vercel's environment settings.
 
