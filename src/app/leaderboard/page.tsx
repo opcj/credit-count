@@ -30,14 +30,11 @@ export default async function LeaderboardPage() {
             </Link>
           ) : (
             <>
-              <Link className="text-link" href="/sign-up">
-                Create an account
+              <Link className="text-link" href="/sign-in">
+                Sign in
               </Link>
-              <Link
-                className="button button-primary public-login"
-                href="/sign-in"
-              >
-                Sign in <ArrowRight size={16} />
+              <Link className="button button-primary" href="/sign-up">
+                Create an account <ArrowRight size={16} />
               </Link>
             </>
           )}
@@ -61,9 +58,9 @@ export default async function LeaderboardPage() {
             </p>
             <Link
               className="button button-primary hero-cta"
-              href={user ? "/dashboard" : "/sign-in"}
+              href={user ? "/dashboard" : "/sign-up"}
             >
-              {user ? "Open your ride pass" : "Sign in to your ride pass"}
+              {user ? "Open your ride pass" : "Create your ride pass"}
               <ArrowRight size={18} />
             </Link>
             <div className="hero-caption">

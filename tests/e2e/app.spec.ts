@@ -415,9 +415,9 @@ test("T02/T03: public signup starts a private journal without email confirmation
       name: "Create an account",
       exact: true,
     });
-    await expect(signInLink).toHaveClass(/button-primary/);
+    await expect(signInLink).not.toHaveClass(/button-primary/);
     await expect(createAccountLink).toBeVisible();
-    await expect(createAccountLink).not.toHaveClass(/button-primary/);
+    await expect(createAccountLink).toHaveClass(/button-primary/);
 
     await signInLink.click();
     await expect(page).toHaveURL(/\/sign-in$/);

@@ -15,9 +15,9 @@ test("T16/T28/T29: phone navigation, touch logging, reflow, and reduced motion",
     .getByRole("navigation", { name: "Public navigation" })
     .getByRole("link", { name: "Create an account", exact: true });
   await expect(signInLink).toBeVisible();
-  await expect(signInLink).toHaveClass(/button-primary/);
+  await expect(signInLink).not.toHaveClass(/button-primary/);
   await expect(createAccountLink).toBeVisible();
-  await expect(createAccountLink).not.toHaveClass(/button-primary/);
+  await expect(createAccountLink).toHaveClass(/button-primary/);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth + 1,
