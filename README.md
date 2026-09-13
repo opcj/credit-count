@@ -2,9 +2,15 @@
 
 A rollercoaster journal for keeping every ride and collecting unique coaster credits. Built with **Next.js, React, TypeScript and Supabase**.
 
+**Live application: [credit-count-snowy.vercel.app](https://credit-count-snowy.vercel.app)**
+
 Log a coaster, date and optional memory; the dashboard updates your credits, total rides, favourite coaster and country/manufacturer/type breakdowns. Riding A, A, B and C gives **4 rides and 3 credits**. Repeat rides, including multiple rides on the same day, remain separate journal entries.
 
 Your journal is private. You can choose to publish only your display name and credit count on the community leaderboard. Catalogue administrators maintain the shared coaster list and correct duplicates without access to other people's journals.
+
+The hosted app supports sign-in with prepared review accounts. Production email delivery is pending, so use those accounts for the live review; signup confirmation and password recovery require SMTP configuration before general registration. Local email flows work through Mailpit as described below.
+
+The live leaderboard includes five synthetic demo riders with distinct credit totals and repeat rides. Their journals follow the same ownership rules as every account; the public ranking exposes only their display names and credit counts.
 
 ## Features
 
@@ -151,7 +157,7 @@ Revoke access with `delete from public.admin_users where user_id = 'REPLACE_WITH
 
 ## Deploy with Supabase and Vercel
 
-1. Create the target Supabase project and a Vercel project connected to this repository. Use separate Supabase data for previews and production. Select a supported Node 22 runtime in Vercel; the Next.js framework preset uses `npm ci` and `npm run build`.
+1. Create the target Supabase project and a Vercel project. Connect the Git repository for automatic deployments, or authenticate the Vercel CLI with `npx vercel login` and deploy manually. Use separate Supabase data for previews and production. Select a supported Node 22 runtime in Vercel; the Next.js framework preset uses `npm ci` and `npm run build`. `vercel.json` places server execution in `sfo1`, near the current Supabase project in Oregon; adjust it if the database region changes.
 2. Authenticate the Supabase CLI in a restricted operator environment, link the target project and apply migrations plus the catalogue seed:
 
    ```powershell
@@ -164,7 +170,9 @@ Revoke access with `delete from public.admin_users where user_id = 'REPLACE_WITH
 
 3. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `NEXT_PUBLIC_SITE_URL` in Vercel. Use the project's public key and the canonical HTTPS application origin. Build after setting them: public environment values are embedded in browser assets. Vercel needs no service-role key or database password.
 4. In Supabase Auth, set the same HTTPS Site URL and allow the exact `https://YOUR_DOMAIN/auth/callback` redirect. Enable email/password signup and email confirmation, configure production SMTP, and test confirmation and password recovery using real deliverable addresses. The permissive local mail limits in `supabase/config.toml` are for local development.
-5. Deploy the configured build, provision any administrator membership through SQL, and verify login/logout, email flows, journal ownership, catalogue roles, opt-in/out and mobile navigation against the hosted environment. Check cache/security headers, provider quotas, backup retention and a restore procedure before accepting production traffic.
+5. Deploy the configured build with `npx vercel deploy --prod` from a clean release checkout, or through the connected Git repository. Provision any administrator membership through SQL, and verify login/logout, email flows, journal ownership, catalogue roles, opt-in/out and mobile navigation against the hosted environment. Check cache/security headers, provider quotas, backup retention and a restore procedure before accepting production traffic.
+
+The current site was deployed directly with the CLI; automatic Git deployments are not connected. `.vercelignore` excludes local credentials, internal documents, tests and database/operator tooling from application uploads. Migrations and seeds are applied separately through the Supabase CLI. Keep an existing local `.env.local` intact when linking projects: run `vercel link` in a clean checkout and provide production configuration through Vercel's environment settings.
 
 When this folder is the Git repository root, leave Vercel's Root Directory at its default. If it is imported as part of a larger workspace instead, set Root Directory to `release`.
 
